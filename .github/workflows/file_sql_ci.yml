@@ -1,0 +1,65 @@
+name: File SQL CI
+# Builds seekdb on a github hosted runner and runs the statements of the
+# public file_sql mysqltest case against a fresh server. The upstream seekdb
+# ci only runs for pull requests against master and develop, so this workflow
+# is the check of the competition branch.
+on:
+  push:
+    branches:
+      - 'codex/file-sql-*'
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 300
+    steps:
+      - name: Checkout the source
+        uses: actions/checkout@v4
+
+      - name: Free the disk space
+        uses: insightsengineering/disk-space-reclaimer@v1
+        with:
+          tools-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true
+          docker-images: true
+
+      - name: Install the build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git wget rpm rpm2cpio cpio make build-essential binutils m4 libtool-bin libncurses5 python3 python3-pip
+
+      - name: Set up rust
+        uses: ./.github/actions/setup-rust
+
+      - name: Cache the dependencies
+        uses: actions/cache@v3
+        with:
+          path: deps/3rd
+          key: deps-${{ hashFiles('deps/init/oceanbase.el9.x86_64.deps') }}
+
+      - name: Generate the sql parser
+        run: |
+          ./build.sh release --init || true
+          cd src/sql/parser
+          if ! bash gen_parser.sh; then
+            echo "--- the sql parser generation failed ---"
+            cat _gen_parser.error || true
+            cat _gen_parser.output || true
+            exit 1
+          fi
+
+      - name: Build seekdb
+        run: |
+          cd build_release && make -j4
+          test -x src/observer/seekdb
+
+      - name: Run the file sql smoke test
+        run: |
+          pip3 install --break-system-packages pymysql
+          python3 .github/script/seekdb/file_sql_smoke.py
+
