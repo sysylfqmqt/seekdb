@@ -6,7 +6,7 @@ name: File SQL CI
 on:
   push:
     branches:
-      - 'codex/file-sql-*'
+      - 'codex/file-sql-verify'
   workflow_dispatch:
 
 jobs:

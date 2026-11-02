@@ -106,8 +106,14 @@ def prepare_data():
 def print_server_log():
     log = WORK / "seekdb.log"
     if log.exists():
-        print("--- the server log ---")
+        print("--- the server stdout ---")
         print(log.read_text(encoding="utf-8", errors="replace")[-8000:])
+    # the observer writes its own log into the base dir
+    log_dir = WORK / "instance" / "log"
+    if log_dir.is_dir():
+        for entry in sorted(log_dir.glob("*.log")):
+            print("--- the server log " + entry.name + " ---")
+            print(entry.read_text(encoding="utf-8", errors="replace")[-12000:])
 
 
 def start_server():
