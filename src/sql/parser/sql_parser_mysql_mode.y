@@ -559,8 +559,8 @@ opt_end_p:
 
 /* only preparable statement will set question mark size */
 stmt:
-    select_stmt             { $ = $1; question_mark_issue($, result); }
-  | copy_stmt               { $ = $1; question_mark_issue($, result); }
+    select_stmt             { $$ = $1; question_mark_issue($$, result); }
+  | copy_stmt               { $$ = $1; question_mark_issue($$, result); }
   | insert_stmt             { $$ = $1; question_mark_issue($$, result); }
   | create_table_stmt       {
     $$ = $1;
@@ -12308,22 +12308,22 @@ explain_or_desc relation_factor opt_desc_column_option
 
 | explain_or_desc FORMAT COMP_EQ format_name explainable_stmt
 {
-  malloc_non_terminal_node($, result->malloc_pool_, T_EXPLAIN, 6, $4, NULL, NULL, NULL, $5, $1);
+  malloc_non_terminal_node($$, result->malloc_pool_, T_EXPLAIN, 6, $4, NULL, NULL, NULL, $5, $1);
 }
 ;
 
 explain_or_desc:
-EXPLAIN {$ = NULL;}
+EXPLAIN {$$ = NULL;}
 | DESCRIBE
 {
   // DESCRIBE SELECT returns the schema of the select, EXPLAIN returns its plan
-  malloc_terminal_node($, result->malloc_pool_, T_INT);
-  $->value_ = 1;
+  malloc_terminal_node($$, result->malloc_pool_, T_INT);
+  $$->value_ = 1;
 }
 | DESC
 {
-  malloc_terminal_node($, result->malloc_pool_, T_INT);
-  $->value_ = 1;
+  malloc_terminal_node($$, result->malloc_pool_, T_INT);
+  $$->value_ = 1;
 }
 ;
 
@@ -17531,22 +17531,22 @@ COPY '(' select_stmt ')' TO STRING_VALUE copy_opt_clause
 copy_opt_clause:
 /* EMPTY */
 {
-  $ = NULL;
+  $$ = NULL;
 }
 | '(' copy_opt_list ')'
 {
-  $ = $2;
+  $$ = $2;
 }
 ;
 
 copy_opt_list:
 copy_opt
 {
-  malloc_non_terminal_node($, result->malloc_pool_, T_LINK_NODE, 2, $1, NULL);
+  malloc_non_terminal_node($$, result->malloc_pool_, T_LINK_NODE, 2, $1, NULL);
 }
 | copy_opt_list ',' copy_opt
 {
-  malloc_non_terminal_node($, result->malloc_pool_, T_LINK_NODE, 2, $3, $1);
+  malloc_non_terminal_node($$, result->malloc_pool_, T_LINK_NODE, 2, $3, $1);
 }
 ;
 
@@ -17554,14 +17554,14 @@ copy_opt:
 relation_name
 {
   // an option without a value, for example HEADER
-  malloc_non_terminal_node($, result->malloc_pool_, T_FILE_COPY_OPT, 1, $1);
-  $->value_ = 1;
+  malloc_non_terminal_node($$, result->malloc_pool_, T_FILE_COPY_OPT, 1, $1);
+  $$->value_ = 1;
 }
 | relation_name STRING_VALUE
 {
   // an option with a value, for example FORMAT csv
-  malloc_non_terminal_node($, result->malloc_pool_, T_FILE_COPY_OPT, 2, $1, $2);
-  $->value_ = 2;
+  malloc_non_terminal_node($$, result->malloc_pool_, T_FILE_COPY_OPT, 2, $1, $2);
+  $$->value_ = 2;
 }
 ;
 
