@@ -40,7 +40,11 @@ def fail(message):
 
 
 def parse_result(path):
-    """Splits the result file into the blocks of a header and its rows."""
+    """Splits the result file into the blocks of a header and its rows.
+
+    A block ends at a comment and at a line with a different number of
+    columns, the result file holds the result sets of the test case one
+    after the other."""
     blocks = []
     header = None
     rows = []
@@ -54,6 +58,10 @@ def parse_result(path):
         fields = line.split("\t")
         if header is None:
             header = fields
+        elif len(fields) != len(header):
+            blocks.append((header, rows))
+            header = fields
+            rows = []
         else:
             rows.append(fields)
     if header is not None:
