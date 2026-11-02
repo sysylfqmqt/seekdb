@@ -118,8 +118,12 @@ def start_server():
         shutil.rmtree(base_dir)
     base_dir.mkdir(parents=True)
     console = open(WORK / "seekdb.log", "wb")
+    # a small memory budget, the github runner does not have the memory of a
+    # build machine
     process = subprocess.Popen([str(BINARY), "--base-dir=" + str(base_dir), "--port=" + str(PORT),
-                                "--nodaemon"],
+                                "--nodaemon",
+                                "--parameter", "memory_budget=2G",
+                                "--parameter", "cpu_count=2"],
                                cwd=str(base_dir), stdout=console, stderr=subprocess.STDOUT)
     deadline = time.time() + READY_TIMEOUT
     last_error = None
