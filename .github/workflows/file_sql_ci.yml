@@ -53,6 +53,14 @@ jobs:
             exit 1
           fi
 
+      # the build directory is kept, a change of the smoke test alone does
+      # not need a new build
+      - name: Cache the build directory
+        uses: actions/cache@v3
+        with:
+          path: build_release
+          key: build-${{ hashFiles('src/sql/parser/sql_parser_mysql_mode.y') }}
+
       - name: Build seekdb
         run: |
           cd build_release && make -j4
@@ -60,6 +68,6 @@ jobs:
 
       - name: Run the file sql smoke test
         run: |
-          pip3 install --break-system-packages pymysql
+          pip3 install pymysql || pip3 install --break-system-packages pymysql
           python3 .github/script/seekdb/file_sql_smoke.py
 
