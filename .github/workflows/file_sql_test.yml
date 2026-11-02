@@ -1,8 +1,13 @@
 name: File SQL Test
-# Runs the file sql smoke test against the runtime of the last File SQL CI
-# build, without a new build.
+# Runs the file sql smoke test against the runtime of a File SQL CI build, so
+# the test can be repeated without a new build.
 on:
   workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'the id of the File SQL CI run that built the runtime'
+        required: false
+        default: '41449292198'
   push:
     branches:
       - 'codex/file-sql-test-*'
@@ -14,15 +19,17 @@ jobs:
     steps:
       - name: Checkout the source
         uses: actions/checkout@v4
-      - name: Download the runtime
+      - name: Download the runtime of the build
         uses: actions/download-artifact@v4
         with:
           name: seekdb-runtime
           path: runtime
+          run-id: ${{ github.event.inputs.run_id || '41449292198' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run the file sql smoke test
         run: |
           pip3 install pymysql || pip3 install --break-system-packages pymysql
           tar -xzf runtime/seekdb-runtime.tgz -C runtime
           SEEKDB_SMOKE_BINARY=${{ github.workspace }}/runtime/seekdb \
             python3 .github/script/seekdb/file_sql_smoke.py || \
-            (echo "--- the server log ---"; tail -120 /tmp/file_sql_smoke/seekdb.log || true; exit 1)
+            (echo "--- the server log ---"; tail -150 /tmp/file_sql_smoke/seekdb.log || true; exit 1)
