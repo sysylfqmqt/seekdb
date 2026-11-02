@@ -21,7 +21,7 @@ import pymysql.cursors
 ROOT = Path(__file__).resolve().parents[3]
 SUITE = ROOT / "tools/deploy/mysql_test/test_suite/file_sql"
 RESULT = SUITE / "r/mysql/file_sql_basic.result"
-BINARY = ROOT / "build_release/src/observer/seekdb"
+BINARY = Path(os.environ.get("SEEKDB_SMOKE_BINARY", ROOT / "build_release/src/observer/seekdb"))
 WORK = Path(os.environ.get("FILE_SQL_WORK", "/tmp/file_sql_smoke"))
 PORT = int(os.environ.get("FILE_SQL_PORT", "2881"))
 READY_TIMEOUT = int(os.environ.get("FILE_SQL_READY_TIMEOUT", "600"))
@@ -71,7 +71,8 @@ def parse_result(path):
 
 def connect():
     return pymysql.connect(host="127.0.0.1", port=PORT, user="root", password="",
-                            charset="utf8mb4", cursorclass=RawCursor, autocommit=True)
+                            charset="utf8mb4", cursorclass=RawCursor, autocommit=True,
+                            connect_timeout=10)
 
 
 def query(sql):
@@ -102,6 +103,13 @@ def prepare_data():
     return data_dir
 
 
+def print_server_log():
+    log = WORK / "seekdb.log"
+    if log.exists():
+        print("--- the server log ---")
+        print(log.read_text(encoding="utf-8", errors="replace")[-8000:])
+
+
 def start_server():
     if not BINARY.exists():
         fail("the seekdb binary is missing: " + str(BINARY))
@@ -114,17 +122,21 @@ def start_server():
                                 "--nodaemon"],
                                cwd=str(base_dir), stdout=console, stderr=subprocess.STDOUT)
     deadline = time.time() + READY_TIMEOUT
+    last_error = None
     while time.time() < deadline:
         if process.poll() is not None:
-            fail("the server stopped, see " + str(WORK / "seekdb.log"))
+            print_server_log()
+            fail("the server stopped")
         try:
             conn = connect()
             conn.close()
             print("the server is ready")
             return process
-        except Exception:
+        except Exception as error:
+            last_error = error
             time.sleep(3)
-    fail("the server is not ready after " + str(READY_TIMEOUT) + " seconds")
+    print_server_log()
+    fail("the server is not ready after " + str(READY_TIMEOUT) + " seconds, last error: " + str(last_error))
 
 
 def stop_server(process):

@@ -66,8 +66,24 @@ jobs:
           cd build_release && make -j4
           test -x src/observer/seekdb
 
+      # the runtime is kept as an artifact, the test workflow below uses it
+      # without a new build
+      - name: Pack the runtime
+        run: |
+          mkdir -p runtime
+          cp build_release/src/observer/seekdb runtime/ || true
+          cp build_release/src/observer/observer runtime/ || true
+          cp -r build_release/src/share runtime/ 2>/dev/null || true
+          tar -czf seekdb-runtime.tgz -C runtime .
+
+      - name: Upload the runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: seekdb-runtime
+          path: seekdb-runtime.tgz
+
       - name: Run the file sql smoke test
         run: |
           pip3 install pymysql || pip3 install --break-system-packages pymysql
-          python3 .github/script/seekdb/file_sql_smoke.py
+          python3 .github/script/seekdb/file_sql_smoke.py || (echo "--- the server log ---"; tail -120 /tmp/file_sql_smoke/seekdb.log || true; exit 1)
 
