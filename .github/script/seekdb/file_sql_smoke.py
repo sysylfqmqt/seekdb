@@ -69,10 +69,14 @@ def parse_result(path):
     return blocks
 
 
-def connect():
-    return pymysql.connect(host="127.0.0.1", port=PORT, user="root", password="",
-                            charset="utf8mb4", cursorclass=RawCursor, autocommit=True,
-                            connect_timeout=10)
+def connect(charset="utf8mb4", autocommit=True):
+    kwargs = {"host": "127.0.0.1", "port": PORT, "user": "root", "password": "",
+              "cursorclass": RawCursor, "connect_timeout": 10}
+    if charset:
+        kwargs["charset"] = charset
+    if autocommit is not None:
+        kwargs["autocommit"] = autocommit
+    return pymysql.connect(**kwargs)
 
 
 def query(sql):
@@ -106,8 +110,18 @@ def prepare_data():
 def print_server_log():
     log = WORK / "seekdb.log"
     if log.exists():
-        print("--- the server log ---")
+        print("--- the server stdout ---")
         print(log.read_text(encoding="utf-8", errors="replace")[-8000:])
+    # the observer writes its own log into the base dir
+    log_dir = WORK / "instance" / "log"
+    if log_dir.is_dir():
+        for entry in sorted(log_dir.glob("*.log")):
+            print("--- the server log " + entry.name + " ---")
+            content = entry.read_text(encoding="utf-8", errors="replace")
+            hits = [line for line in content.splitlines()
+                    if any(key in line for key in ("system variable", "1193", "ERROR", "WARN",
+                                                    "unknown", "UNKNOWN"))]
+            print("\n".join(hits[-40:]) if hits else content[-4000:])
 
 
 def start_server():
@@ -118,8 +132,12 @@ def start_server():
         shutil.rmtree(base_dir)
     base_dir.mkdir(parents=True)
     console = open(WORK / "seekdb.log", "wb")
+    # a small memory budget, the github runner does not have the memory of a
+    # build machine
     process = subprocess.Popen([str(BINARY), "--base-dir=" + str(base_dir), "--port=" + str(PORT),
-                                "--nodaemon"],
+                                "--nodaemon",
+                                "--parameter", "memory_budget=2G",
+                                "--parameter", "cpu_count=2"],
                                cwd=str(base_dir), stdout=console, stderr=subprocess.STDOUT)
     deadline = time.time() + READY_TIMEOUT
     last_error = None
@@ -135,6 +153,15 @@ def start_server():
         except Exception as error:
             last_error = error
             time.sleep(3)
+    # which connection variant works?
+    for charset in ("utf8mb4", None):
+        for autocommit in (True, False, None):
+            try:
+                conn = connect(charset, autocommit)
+                conn.close()
+                print("the server accepts charset=" + str(charset) + " autocommit=" + str(autocommit))
+            except Exception as error:
+                print("the server rejects charset=" + str(charset) + " autocommit=" + str(autocommit) + ": " + str(error))
     print_server_log()
     fail("the server is not ready after " + str(READY_TIMEOUT) + " seconds, last error: " + str(last_error))
 
@@ -214,3 +241,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+# rerun
